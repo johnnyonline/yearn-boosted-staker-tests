@@ -74,16 +74,75 @@ contract YearnBoostedStakerTest is Test {
         assertEq(ybs.START_TIME(), block.timestamp, "testDeploymentsParams: E5");
     }
 
-    function testImmediateWithdrawalFlow(uint256 _amount) public {
+    function testFlowSameWeek(uint256 _amount) public {
         vm.assume(_amount > 1 && _amount < 1000 ether && _amount < type(uint112).max);
-        _initialUserDeposit(alice, _amount);
 
-        // check that if we withdraw the same amount we deposited, we get the same amount back
+        _initialUserDeposit(alice, _amount);
+        skip(10 weeks);
+        ybs.checkpointAccount(alice);
+        revert("asd1");
+        assertEq(ybs.getAccountWeightRatio(alice), 1 ether, "testImmediateWithdrawalFlow: E0");
+
+        _initialUserDeposit(bob, _amount);
+        assertEq(ybs.getAccountWeightRatio(alice), 0.5 ether, "testImmediateWithdrawalFlow: E1");
+        assertEq(ybs.getAccountWeightRatio(bob), 0.5 ether, "testImmediateWithdrawalFlow: E2");
+
+        _initialUserDeposit(yossi, _amount);
+        assertEq(ybs.getAccountWeightRatio(alice), 333333333333333333, "testImmediateWithdrawalFlow: E3");
+        assertEq(ybs.getAccountWeightRatio(bob), 333333333333333333, "testImmediateWithdrawalFlow: E4");
+        assertEq(ybs.getAccountWeightRatio(yossi), 333333333333333333, "testImmediateWithdrawalFlow: E5");
+
+        _withdraw(alice, _amount);
     }
 
     // ============================================================================================
     // Internal Functions
     // ============================================================================================
+
+    function _withdraw(address _user, uint256 _amount) internal {
+
+            // BeforeDepositData memory _beforeDepositData;
+            // {
+            //     (
+            //         uint112 _realizedStakeBefore,
+            //         uint112 _pendingStakeBefore,
+            //         uint16 _lastUpdateWeekBefore,
+            //         uint8 _updateWeeksBitmapBefore
+            //     ) = ybs.accountData(_user);
+    
+            //     _beforeDepositData = BeforeDepositData({
+            //         realizedStake: _realizedStakeBefore,
+            //         pendingStake: _pendingStakeBefore,
+            //         lastUpdateWeek: _lastUpdateWeekBefore,
+            //         updateWeeksBitmap: _updateWeeksBitmapBefore,
+            //         userBalance: TOKEN.balanceOf(_user),
+            //         ybsBalance: TOKEN.balanceOf(address(ybs)),
+            //         globalGrowthRate: ybs.globalGrowthRate(),
+            //         accountWeeklyToRealize: ybs.accountWeeklyToRealize(_user, ybs.getWeek() + MAX_STAKE_GROWTH_WEEKS),
+            //         accountWeeklyWeights: ybs.getAccountWeightAt(_user, ybs.getWeek()),
+            //         globalWeeklyToRealize: ybs.globalWeeklyToRealize(ybs.getWeek() + MAX_STAKE_GROWTH_WEEKS),
+            //         globalWeeklyWeights: ybs.getGlobalWeightAt(ybs.getWeek()),
+            //         totalSupply: ybs.totalSupply()
+            //     });
+            // }
+    
+            // vm.startPrank(_user);
+            // ybs.withdraw(_amount);
+    
+            // (
+            //     uint112 _realizedStakeAfter,
+            //     uint112 _pendingStakeAfter,
+            //     uint16 _lastUpdateWeekAfter,
+            //     uint8 _updateWeeksBitmapAfter
+            // ) = ybs.accountData(_user);
+    
+            // assertEq(_realizedStakeAfter, _beforeDepositData.realizedStake + _amount.toUint112(), "_withdraw: E0");
+            // assertEq(_pendingStakeAfter, _beforeDepositData.pendingStake - (_amount >> 1).toUint112(), "_withdraw: E1");
+            // assertEq(_lastUpdateWeekAfter, ybs.getWeek(), "_withdraw: E2");
+            // assertEq(_updateWeeksBitmapAfter, _beforeDepositData.updateWeeksBitmap, "_withdraw: E3");
+            // assertApproxEqAbs(TOKEN.balanceOf(_user), _beforeDepositData.userBalance + _amount, 1, "_withdraw: E4");
+            // assertApproxEqAbs(TOKEN.balanceOf(address(ybs)), _beforeDepositData.ybsBalance - _amount, 1, "_withdraw
+    }
 
     function _initialUserDeposit(address _user, uint256 _amount) internal {
 
@@ -142,6 +201,8 @@ contract YearnBoostedStakerTest is Test {
         assertEq(ybs.getGlobalWeightAt(ybs.getWeek()), _beforeDepositData.globalWeeklyWeights + _weight, "_deposit: E12");
         assertApproxEqAbs(ybs.totalSupply(), _beforeDepositData.totalSupply + _amount, 1, "_deposit: E13");
         assertApproxEqAbs((_realizedStakeAfter + _pendingStakeAfter) * 2, _beforeDepositData.realizedStake + _beforeDepositData.pendingStake + _amount.toUint112(), 1, "_deposit: E14");
+        assertEq(ybs.getGlobalWeight(), _beforeDepositData.globalWeeklyWeights + _weight, "_deposit: E15");
+        assertApproxEqAbs(ybs.balanceOf(_user), _amount, 1, "_deposit: E16");
     }
 
     function _createUser(string memory _name) internal returns (address payable) {
