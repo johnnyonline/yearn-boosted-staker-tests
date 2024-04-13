@@ -226,7 +226,6 @@ contract YearnBoostedStaker {
         return _withdraw(_account, _amount, _receiver);
     }
 
-    // @audit - where does we check that _account has enough balance to withdraw?
     function _withdraw(address _account, uint _amount, address _receiver) internal returns (uint) {
         require(_amount > 1 && _amount < type(uint112).max, "invalid amount");
         uint systemWeek = getWeek();
@@ -366,7 +365,7 @@ contract YearnBoostedStaker {
             unchecked{ lastUpdateWeek++; }
             weight += pending; // Increment weights by weekly growth factor.
             console.log("weight: ", weight);
-            accountWeeklyWeights[_account][lastUpdateWeek] = weight; // @audit - can set this outside of loop to save gas?
+            accountWeeklyWeights[_account][lastUpdateWeek] = weight;
 
             // Shift left on bitmap as we pass over each week.
             console.log("bitmap: ", bitmap);
