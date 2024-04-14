@@ -115,7 +115,6 @@ contract YearnBoostedStaker {
 
     function _deposit(address _account, uint _amount) internal returns (uint) {
         require(_amount > 1 && _amount < type(uint112).max, "invalid amount");
-        console.log("deposit: ", _amount);
 
         // Before going further, let's sync our account and global weights
         uint systemWeek = getWeek();
@@ -124,7 +123,6 @@ contract YearnBoostedStaker {
 
         uint weight = _amount >> 1;
         _amount = weight << 1; // This helps prevent balance/weight discrepencies.
-        console.log("weight: ", weight);
         
         acctData.pendingStake += uint112(weight);
         globalGrowthRate += uint112(weight);
@@ -137,9 +135,7 @@ contract YearnBoostedStaker {
         accountWeeklyWeights[_account][systemWeek] = accountWeight + weight;
         globalWeeklyToRealize[realizeWeek] += weight;
         globalWeeklyWeights[systemWeek] = globalWeight + weight;
-        console.log("acctData.updateWeeksBitmap: ", acctData.updateWeeksBitmap);
         acctData.updateWeeksBitmap |= 1; // Use bitwise or to ensure bit is flipped at least weighted position.
-        console.log("acctData.updateWeeksBitmap1: ", acctData.updateWeeksBitmap);
         accountData[_account] = acctData;
         totalSupply += _amount;
         
@@ -245,6 +241,8 @@ contract YearnBoostedStaker {
             for (uint weekIndex; weekIndex < MAX_STAKE_GROWTH_WEEKS;) {
                 // Move right to left, checking each bit if there's an update for corresponding week.
                 uint8 mask = uint8(1 << weekIndex);
+                console.log("mask: %d", mask);
+                console.log("bitmap: %d", bitmap);
                 if (bitmap & mask == mask) {
                     uint weekToCheck = systemWeek + MAX_STAKE_GROWTH_WEEKS - weekIndex;
                     uint pending = accountWeeklyToRealize[_account][weekToCheck];
@@ -261,7 +259,7 @@ contract YearnBoostedStaker {
                         weightToRemove += amountNeeded * (weekIndex + 1);
                         accountWeeklyToRealize[_account][weekToCheck] -= amountNeeded;
                         globalWeeklyToRealize[weekToCheck] -= amountNeeded;
-                        if (amountNeeded == pending) bitmap = bitmap ^ mask;
+                        if (amountNeeded == pending) bitmap = bitmap ^ mask; // @audit `^` is xor 
                         amountNeeded = 0;
                         break;
                     }
@@ -355,39 +353,29 @@ contract YearnBoostedStaker {
 
         weight = accountWeeklyWeights[_account][lastUpdateWeek];
         uint8 bitmap = acctData.updateWeeksBitmap;
-        console.log("_systemWeek: ", _systemWeek);
-        console.log("lastUpdateWeek: ", lastUpdateWeek);
-        console.log("lastUpdateWeek + MAX_STAKE_GROWTH_WEEKS: ", lastUpdateWeek + MAX_STAKE_GROWTH_WEEKS);
         uint targetSyncWeek = min(_systemWeek, lastUpdateWeek + MAX_STAKE_GROWTH_WEEKS);
 
         // Populate data for missed weeks
         while (lastUpdateWeek < targetSyncWeek) {
             unchecked{ lastUpdateWeek++; }
             weight += pending; // Increment weights by weekly growth factor.
-            console.log("weight: ", weight);
             accountWeeklyWeights[_account][lastUpdateWeek] = weight;
 
             // Shift left on bitmap as we pass over each week.
-            console.log("bitmap: ", bitmap);
             bitmap = bitmap << 1;
-            console.log("bitmap1: ", bitmap);
-            console.log("MAX_WEEK_BIT: ", MAX_WEEK_BIT);
+            console.log("0bitmap: %d", bitmap);
             if (bitmap & MAX_WEEK_BIT == MAX_WEEK_BIT){ // If left-most bit is true, we have something to realize; push pending to realized.
-                console.log("here");
                 // @audit - only enters when `bitmap = 32 (0b100000)` (after 5 weeks)
                 // Do any updates needed to realize an amount for an account.
                 uint toRealize = accountWeeklyToRealize[_account][lastUpdateWeek];
-                console.log("toRealize: ", toRealize);
-                console.log("pending: ", pending);
                 pending -= toRealize;
                 realized += toRealize;
-                if (pending == 0) break; // All pending has been realized. No need to continue. // @audit -- else should never happen ? -- maybe revert if it does?
+                if (pending == 0) break; // All pending has been realized. No need to continue.
             }
         }
 
         // Fill in any missed weeks.
         while (lastUpdateWeek < _systemWeek){
-            console.log("here2");
             unchecked{lastUpdateWeek++;}
             accountWeeklyWeights[_account][lastUpdateWeek] = weight;
         }   

@@ -74,6 +74,36 @@ contract YearnBoostedStakerTest is Test {
         assertEq(ybs.START_TIME(), block.timestamp, "testDeploymentsParams: E5");
     }
 
+    function testDummy() public {
+        uint256 _amount = 1 ether;
+        vm.startPrank(alice);
+
+        TOKEN.approve(address(ybs), _amount);
+        ybs.deposit(_amount);
+
+        skip(3 weeks);
+        console.log("checkcheck");
+        
+        TOKEN.approve(address(ybs), _amount);
+        ybs.deposit(_amount);
+
+        // skip(5 weeks);
+        // console.log("checkcheck1");
+
+        // TOKEN.approve(address(ybs), _amount);
+        // ybs.deposit(_amount);
+
+        // console.log("checkcheck2");
+        skip(1 weeks);
+        console.log("checkcheck3");
+        ybs.checkpointAccount(alice);
+
+        // ybs.withdraw(_amount, alice);
+        revert("asd");
+
+        vm.stopPrank();
+    }
+
     function testFlowSameWeek(uint256 _amount) public {
         vm.assume(_amount > 1 && _amount < 1000 ether && _amount < type(uint112).max);
 
