@@ -81,27 +81,36 @@ contract YearnBoostedStakerTest is Test {
         TOKEN.approve(address(ybs), _amount);
         ybs.deposit(_amount);
 
-        skip(3 weeks);
+        skip(2 weeks);
         console.log("checkcheck");
         
         TOKEN.approve(address(ybs), _amount);
         ybs.deposit(_amount);
 
-        // skip(5 weeks);
-        // console.log("checkcheck1");
+        skip(2 weeks);
+        // console.log("checkcheck5");
+        // ybs.checkpointAccount(alice);
 
-        // TOKEN.approve(address(ybs), _amount);
-        // ybs.deposit(_amount);
-
-        // console.log("checkcheck2");
-        skip(1 weeks);
-        console.log("checkcheck3");
-        ybs.checkpointAccount(alice);
-
-        // ybs.withdraw(_amount, alice);
+        ybs.withdraw(1.5 ether, alice);
         revert("asd");
 
         vm.stopPrank();
+    }
+
+    function testDummy2() public {
+
+        uint256 _amount = 1 ether;
+        vm.startPrank(alice);
+
+        TOKEN.approve(address(ybs), _amount);
+        ybs.deposit(_amount);
+        vm.stopPrank();
+
+        skip(6 weeks);
+
+        console.log("account weight: ", ybs.getAccountWeight(alice));
+
+        revert("asd");
     }
 
     function testFlowSameWeek(uint256 _amount) public {

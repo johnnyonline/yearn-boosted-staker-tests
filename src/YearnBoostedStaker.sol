@@ -180,7 +180,7 @@ contract YearnBoostedStaker {
             globalGrowthRate += uint112(weight);
             uint realizeWeek = systemWeek + (MAX_STAKE_GROWTH_WEEKS - _idx);
             uint previous = accountWeeklyToRealize[_account][realizeWeek];
-            accountWeeklyToRealize[_account][realizeWeek] = previous + weight;
+            accountWeeklyToRealize[_account][realizeWeek] = previous + weight; // @audit - use `+=weight` to save gas? (no need the `previous` var)
             globalWeeklyToRealize[realizeWeek] += weight;
 
             uint8 mask = uint8(1 << _idx);
@@ -193,7 +193,7 @@ contract YearnBoostedStaker {
         totalSupply += _amount;
 
         stakeToken.safeTransferFrom(msg.sender, address(this), uint(_amount));
-        emit Deposit(_account, systemWeek, _amount, accountWeight + instantWeight, instantWeight);
+        emit Deposit(_account, systemWeek, _amount, accountWeight + instantWeight, instantWeight); // @audit - emit before transfer
 
         return _amount;
     }
@@ -237,6 +237,10 @@ contract YearnBoostedStaker {
         uint amountNeeded = _amount >> 1;
         _amount = amountNeeded << 1; // This helps prevent balance/weight discrepencies.
 
+        // 0b10100
+        // 0b00100
+        // AND
+        // 0b00100
         if (bitmap > 0) {
             for (uint weekIndex; weekIndex < MAX_STAKE_GROWTH_WEEKS;) {
                 // Move right to left, checking each bit if there's an update for corresponding week.
@@ -244,6 +248,7 @@ contract YearnBoostedStaker {
                 console.log("mask: %d", mask);
                 console.log("bitmap: %d", bitmap);
                 if (bitmap & mask == mask) {
+                    console.log("weekIndex: %d", weekIndex);
                     uint weekToCheck = systemWeek + MAX_STAKE_GROWTH_WEEKS - weekIndex;
                     uint pending = accountWeeklyToRealize[_account][weekToCheck];
                     
@@ -251,8 +256,16 @@ contract YearnBoostedStaker {
                         weightToRemove += pending * (weekIndex + 1);
                         accountWeeklyToRealize[_account][weekToCheck] = 0;
                         globalWeeklyToRealize[weekToCheck] -= pending;
+                        console.log("0bitmap: %d", bitmap);
                         bitmap = bitmap ^ mask;
+                        console.log("1bitmap: %d", bitmap);
+                        // 10100
+                        // 00100
+                        // ^
+                        // 10000
                         amountNeeded -= pending;
+                        console.log("amountNeeded: %d", amountNeeded);
+                        console.log("pending: %d", pending);
                     }
                     else { 
                         // handle the case where we have more pending than needed
@@ -363,9 +376,7 @@ contract YearnBoostedStaker {
 
             // Shift left on bitmap as we pass over each week.
             bitmap = bitmap << 1;
-            console.log("0bitmap: %d", bitmap);
             if (bitmap & MAX_WEEK_BIT == MAX_WEEK_BIT){ // If left-most bit is true, we have something to realize; push pending to realized.
-                // @audit - only enters when `bitmap = 32 (0b100000)` (after 5 weeks)
                 // Do any updates needed to realize an amount for an account.
                 uint toRealize = accountWeeklyToRealize[_account][lastUpdateWeek];
                 pending -= toRealize;
@@ -527,7 +538,7 @@ contract YearnBoostedStaker {
         @param _week Week to query.
         @return ratio of account weight to gloabl weight in terms of 1e18.
     */
-    function getAccountWeightRatioAt(address _account, uint _week) public view returns (uint) {
+    function getAccountWeightRatioAt(address _account, uint _week) public view returns (uint) { // @audit - should be external
         if (_week > getWeek()) return 0;
         return _getAccountWeightRatioAt(_account, getWeek());
     }
