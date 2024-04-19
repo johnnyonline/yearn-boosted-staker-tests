@@ -63,12 +63,13 @@ contract RewardsDistTest is Test {
     // Test Functions
     // ============================================================================================
 
-    function testRewardsSetUp() public {
+    function testRewardsSetUp() public view {
         assertEq(address(strd.staker()), address(ybs), "testRewardsSetUp: E0");
         assertEq(address(strd.rewardToken()), address(REWARD_TOKEN), "testRewardsSetUp: E1");
         assertEq(strd.START_WEEK(), ybs.getWeek(), "testRewardsSetUp: E2");
     }
 
+    // claim                                                                      | 24174           | 70941 | 79929  | 99733 | 4       |
     function testClaimRewardsSameDeposit() public {
         uint256 _amount = 1 ether;
 
@@ -87,5 +88,52 @@ contract RewardsDistTest is Test {
         REWARD_TOKEN.approve(address(strd), 1 ether);
         strd.depositReward(1 ether);
         vm.stopPrank();
+
+        assertEq(strd.weeklyRewardAmount(0), 1 ether, "testClaimRewardsSameDeposit: E0");
+
+        vm.prank(alice);
+        vm.expectRevert("claimEndWeek >= currentWeek");
+        strd.claim();
+
+        assertEq(strd.computeSharesAt(alice, 0), 0.5 ether, "testClaimRewardsSameDeposit: E1");
+        assertEq(strd.computeSharesAt(bob, 0), 0.5 ether, "testClaimRewardsSameDeposit: E2");
+        assertEq(strd.claimable(alice), 0, "testClaimRewardsSameDeposit: E3");
+        assertEq(strd.claimable(bob), 0, "testClaimRewardsSameDeposit: E4");
+
+        skip(1 weeks);
+
+        // deposit more rewards
+        vm.startPrank(yossi);
+        REWARD_TOKEN.approve(address(strd), 1 ether);
+        strd.depositReward(1 ether);
+        vm.stopPrank();
+
+        assertEq(strd.weeklyRewardAmount(1), 1 ether, "testClaimRewardsSameDeposit: E5");
+        assertEq(strd.computeSharesAt(alice, 1), 0.5 ether, "testClaimRewardsSameDeposit: E6");
+        assertEq(strd.computeSharesAt(bob, 1), 0.5 ether, "testClaimRewardsSameDeposit: E2");
+        assertEq(strd.claimable(alice), 0.5 ether, "testClaimRewardsSameDeposit: E3");
+        assertEq(strd.claimable(bob), 0.5 ether, "testClaimRewardsSameDeposit: E4");
+
+        // claim from week 0 for alice
+        vm.prank(alice);
+        strd.claim();
+        assertEq(strd.claimable(alice), 0, "testClaimRewardsSameDeposit: E7");
+        assertEq(REWARD_TOKEN.balanceOf(alice), 0.5 ether, "testClaimRewardsSameDeposit: E8");
+
+        skip(1 weeks);
+
+        // claim from week 1 for alice
+        assertEq(strd.claimable(alice), 0.5 ether, "testClaimRewardsSameDeposit: E9");
+        vm.prank(alice);
+        strd.claim();
+        assertEq(strd.claimable(alice), 0, "testClaimRewardsSameDeposit: E9");
+        assertEq(REWARD_TOKEN.balanceOf(alice), 1 ether, "testClaimRewardsSameDeposit: E10");
+
+        // claim everything for bob
+        assertEq(strd.claimable(bob), 1 ether, "testClaimRewardsSameDeposit: E11");
+        vm.prank(bob);
+        strd.claim();
+        assertEq(strd.claimable(bob), 0, "testClaimRewardsSameDeposit: E12");
+        assertEq(REWARD_TOKEN.balanceOf(bob), 1 ether, "testClaimRewardsSameDeposit: E13");
     }
 }

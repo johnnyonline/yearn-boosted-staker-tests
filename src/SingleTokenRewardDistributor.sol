@@ -30,7 +30,7 @@ contract SingleTokenRewardDistributor is WeekStart {
     event ClaimerApproved(address indexed account, address indexed, bool approved);
 
     /**
-        @notice Allow permissionless deposits to the current week.
+        @notice Allow permissionless deposits to the current week. // @audit - wrong natspec
         @param _staker the staking contract to use for weight calculations.
         @param _rewardToken address of reward token.
     */
@@ -150,10 +150,11 @@ contract SingleTokenRewardDistributor is WeekStart {
         
         if (amountClaimed > 0) {
             rewardToken.transfer(recipient, amountClaimed); // @audit - use safeTransfer
-            emit RewardsClaimed(_account, _claimEndWeek, amountClaimed);
+            emit RewardsClaimed(_account, _claimEndWeek, amountClaimed); // @audit - consider treating emit as state change and apply CEI
         }
     }
 
+    // @audit - natspec missing params
     /**
         @notice Helper function used to determine overal share of rewards at a particular week.
         @dev    Computing shares in past weeks is accurate. However, current week computations will not accurate 
@@ -168,6 +169,7 @@ contract SingleTokenRewardDistributor is WeekStart {
         return acctWeight * PRECISION / globalWeight;
     }
 
+    // @audit - natspec missing params
     /**
         @notice Get the sum total number of claimable tokens for a user across all his claimable weeks.
     */
@@ -176,6 +178,7 @@ contract SingleTokenRewardDistributor is WeekStart {
         return _getTotalClaimableByRange(_account, claimStartWeek, claimEndWeek);
     }
 
+    // @audit - natspec missing params
     /**
         @dev Returns sum of tokens earned with the specified range of weeks.
     */
@@ -196,10 +199,11 @@ contract SingleTokenRewardDistributor is WeekStart {
     ) internal view returns (uint claimableAmount) {
         for (uint i = _claimStartWeek; i <= _claimEndWeek; ++i) {
             uint claimable = getClaimableAt(_account, i); // @audit - `claimable` shadows function name
-            claimableAmount += claimable;
+            claimableAmount += claimable; // @audit - can += directly
         }
     }
 
+    // @audit - natspec missing params
     /**
         @notice Helper function returns suggested start and end range for claim weeks.
         @dev    This function is designed to be called prior to ranged claims to shorted the number of iterations
@@ -214,7 +218,7 @@ contract SingleTokenRewardDistributor is WeekStart {
         claimStartWeek = START_WEEK > lastClaimWeek ? START_WEEK : lastClaimWeek;
 
         // Loop from old towards recent.
-        for (claimStartWeek; claimStartWeek <= currentWeek; claimStartWeek++) { // @audit - redundant expression `claimStartWeek`
+        for (claimStartWeek; claimStartWeek <= currentWeek; claimStartWeek++) {
             if (getClaimableAt(_account, claimStartWeek) > 0) {
                 canClaim = true;
                 break;
@@ -242,7 +246,7 @@ contract SingleTokenRewardDistributor is WeekStart {
         address _account, 
         uint _week
     ) public view returns (uint rewardAmount) {
-        uint currentWeek = getWeek();
+        uint currentWeek = getWeek(); // @audit - can save local variable and use getWeek() directly
         if(_week >= currentWeek) return 0;
         if(_week < accountInfo[_account].lastClaimWeek) return 0;
         uint rewardShare = computeSharesAt(_account, _week);
